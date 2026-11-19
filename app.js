@@ -43,6 +43,7 @@ let audioCtx = null;
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
   bindEvents();
+  bindButtonSounds();
   loadStudents();
   renderTimer();
 });
@@ -976,11 +977,6 @@ function animateReward(origin, delta) {
     height: 1
   };
 
-  if (delta > 0) {
-    playRewardSound();
-  } else {
-    playSoftDownSound();
-  }
 
   for (let i = 0; i < 10; i += 1) {
     const star = document.createElement("span");
@@ -1010,6 +1006,155 @@ function animateReward(origin, delta) {
       setTimeout(() => piece.remove(), 1400);
     }
   }
+}
+
+
+function bindButtonSounds() {
+  // Event delegation memastikan butang dinamik (kad murid/kumpulan) turut berbunyi.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button || button.disabled) return;
+    playSoundForButton(button);
+  }, true);
+}
+
+function playSoundForButton(button) {
+  const id = button.id || "";
+
+  // Ganjaran individu / kumpulan yang dijana secara dinamik.
+  if (button.matches("[data-reward-student], [data-reward-group]")) {
+    Number(button.dataset.delta) > 0 ? playCoinRewardSound() : playSoftDownSound();
+    return;
+  }
+
+  // Ganjaran daripada Picker.
+  if (id === "pickerAddStar") {
+    playCoinRewardSound();
+    return;
+  }
+  if (id === "pickerMinusStar") {
+    playSoftDownSound();
+    return;
+  }
+
+  // Navigasi utama Treasure Island.
+  if (button.classList.contains("tab")) {
+    playWoodMenuSound();
+    return;
+  }
+
+  const soundMap = {
+    refreshBtn: playRefreshSound,
+    resetScoresBtn: playWarningSound,
+    randomGroupsBtn: playShuffleSound,
+    manualGroupsBtn: playMapOpenSound,
+    pickStudentMode: playToggleSound,
+    pickGroupMode: playToggleSound,
+    pickBtn: playCompassSpinSound,
+    setCustomTimer: playConfirmSound,
+    timerStart: playTimerStartSound,
+    timerPause: playTimerPauseSound,
+    timerReset: playTimerResetSound,
+    leaderStudentMode: playToggleSound,
+    leaderGroupMode: playToggleSound
+  };
+
+  if (soundMap[id]) {
+    soundMap[id]();
+    return;
+  }
+
+  if (button.closest(".timer-presets")) {
+    playTimerTickSound();
+    return;
+  }
+
+  // Fallback: mana-mana butang baharu masih mendapat maklum balas audio.
+  playUiClickSound();
+}
+
+function playSweep(startFrequency, endFrequency, duration = 0.22, type = "sine", volume = 0.025) {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(startFrequency, now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), now + duration);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.025);
+}
+
+function playUiClickSound() {
+  playChimeSequence([330, 392], 0.045, 0.035, "triangle", 0.022);
+}
+
+function playWoodMenuSound() {
+  playTone(196, 0, 0.055, "square", 0.022);
+  playTone(293.66, 0.038, 0.055, "triangle", 0.025);
+}
+
+function playRefreshSound() {
+  playSweep(330, 880, 0.22, "sine", 0.028);
+  playTone(987.77, 0.18, 0.07, "triangle", 0.026);
+}
+
+function playWarningSound() {
+  playChimeSequence([392, 311.13, 246.94], 0.11, 0.09, "sawtooth", 0.022);
+}
+
+function playShuffleSound() {
+  [261.63, 329.63, 392, 523.25].forEach((note, index) => {
+    playTone(note, index * 0.045, 0.055, index % 2 ? "triangle" : "square", 0.022);
+  });
+}
+
+function playMapOpenSound() {
+  playChimeSequence([293.66, 349.23, 440], 0.07, 0.06, "triangle", 0.025);
+}
+
+function playToggleSound() {
+  playChimeSequence([523.25, 659.25], 0.05, 0.045, "sine", 0.021);
+}
+
+function playCompassSpinSound() {
+  playSweep(240, 920, 0.32, "triangle", 0.025);
+  playTone(1046.5, 0.29, 0.075, "sine", 0.028);
+}
+
+function playTimerTickSound() {
+  playTone(880, 0, 0.04, "square", 0.018);
+  playTone(1174.66, 0.045, 0.035, "triangle", 0.018);
+}
+
+function playConfirmSound() {
+  playChimeSequence([523.25, 659.25, 783.99], 0.06, 0.05, "triangle", 0.026);
+}
+
+function playTimerStartSound() {
+  playChimeSequence([392, 523.25, 659.25], 0.07, 0.06, "triangle", 0.027);
+}
+
+function playTimerPauseSound() {
+  playChimeSequence([440, 329.63], 0.075, 0.065, "sine", 0.023);
+}
+
+function playTimerResetSound() {
+  playSweep(620, 260, 0.2, "sine", 0.023);
+  playTone(392, 0.2, 0.06, "triangle", 0.02);
+}
+
+function playCoinRewardSound() {
+  // Bunyi syiling berkilau: dua nada tinggi pantas + chime kemenangan kecil.
+  playTone(1318.51, 0, 0.055, "sine", 0.034);
+  playTone(1760, 0.035, 0.06, "triangle", 0.032);
+  playTone(2093, 0.085, 0.09, "sine", 0.025);
 }
 
 function ensureAudioContext() {
@@ -1042,7 +1187,7 @@ function playChimeSequence(notes, duration = 0.08, gap = 0.05, type = "triangle"
 }
 
 function playRewardSound() {
-  playChimeSequence([659.25, 783.99, 987.77], 0.08, 0.055, "triangle", 0.04);
+  playCoinRewardSound();
 }
 
 function playSoftDownSound() {
